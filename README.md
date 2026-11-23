@@ -1,1 +1,0 @@
-# TK00BG74-3004-Web-palvelujen-toteutus-2
