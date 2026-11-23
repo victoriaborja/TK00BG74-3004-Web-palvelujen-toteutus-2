@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: shelter
+      POSTGRES_PASSWORD: shelter
+      POSTGRES_DB: shelter
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shelter -d shelter"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  server-a:
+    build: .
+    command: ["node", "server-a.js"]
+    environment:
+      DATABASE_URL: postgres://shelter:shelter@db:5432/shelter
+      ADOPTION_SERVICE_URL: http://server-b:3001
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      server-b:
+        condition: service_healthy
+
+  server-b:
+    build: .
+    command: ["node", "server-b.js"]
+    environment:
+      DATABASE_URL: postgres://shelter:shelter@db:5432/shelter
+      ADMIN_PASSWORD: shelter-admin
+      PORT: 3001
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
